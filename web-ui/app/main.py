@@ -22,6 +22,15 @@ STATIC_DIR = ROOT_DIR / "static"
 DOWNLOAD_DIR = ROOT_DIR / "downloads"
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+# Cốc Cốc stores its Chromium profile under this default Windows location.
+# Override COCCOC_PROFILE_PATH if the browser uses a different profile folder.
+COCCOC_PROFILE_DIR = Path(
+    __import__("os").environ.get(
+        "COCCOC_PROFILE_PATH",
+        str(Path.home() / "AppData/Local/CocCoc/Browser/User Data/Default"),
+    )
+).expanduser()
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("yt-dlp-web-ui")
 executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="yt-dlp")
@@ -58,6 +67,22 @@ def validate_public_http_url(raw_url: str) -> str:
     except ValueError:
         raise HTTPException(status_code=400, detail="The URL host or port is invalid.") from None
     return raw_url.strip()
+
+
+def yt_dlp_options_with_coccoc_cookies(options: dict[str, Any]) -> dict[str, Any]:
+    """Use the signed-in Cốc Cốc Chromium profile when it exists.
+
+    yt-dlp's Chromium cookie reader accepts an explicit profile path. The
+    browser should be closed while cookies are read to avoid SQLite locks.
+    """
+    if COCCOC_PROFILE_DIR.is_dir():
+        options["cookiesfrombrowser"] = (
+            "chrome",
+            str(COCCOC_PROFILE_DIR),
+            None,
+            None,
+        )
+    return options
 
 
 def update_task(task_id: str, **changes: Any) -> None:
@@ -118,6 +143,7 @@ def run_download(task_id: str, url: str, media_type: str) -> None:
         })
 
     try:
+        yt_dlp_options_with_coccoc_cookies(options)
         update_task(task_id, state="starting", message="Starting download…")
         with yt_dlp.YoutubeDL(options) as ydl:
             ydl.download([url])
@@ -154,6 +180,7 @@ async def health() -> dict[str, str]:
 async def video_info(request: URLRequest) -> dict[str, Any]:
     url = validate_public_http_url(request.url)
     options = {"quiet": True, "no_warnings": True, "noplaylist": True, "skip_download": True}
+    yt_dlp_options_with_coccoc_cookies(options)
     try:
         info = await __import__("asyncio").to_thread(_extract_info, url, options)
     except Exception as exc:
