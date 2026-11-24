@@ -249,7 +249,7 @@ async def video_info(request: URLRequest) -> dict[str, Any]:
     try:
         info = await __import__("asyncio").to_thread(_extract_info_with_coccoc_cookies, url, options)
     except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Could not read video information: {str(exc)[:300]}") from None
+        raise HTTPException(status_code=422, detail=f"Could not read video information: {type(exc).__name__}: {str(exc)[:900]}") from None
     return {
         "title": info.get("title"),
         "thumbnail": info.get("thumbnail"),
