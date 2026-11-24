@@ -16,9 +16,13 @@ from app import main  # noqa: E402
 class CocCocCookieSnapshotTests(unittest.TestCase):
     def _make_cookie_db(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(path) as connection:
+        connection = sqlite3.connect(path)
+        try:
             connection.execute("CREATE TABLE sample (value TEXT)")
             connection.execute("INSERT INTO sample(value) VALUES ('snapshot-ok')")
+            connection.commit()
+        finally:
+            connection.close()
 
     def test_find_prefers_network_cookie_database(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -41,8 +45,11 @@ class CocCocCookieSnapshotTests(unittest.TestCase):
 
             main._sqlite_snapshot(source, destination)
 
-            with sqlite3.connect(destination) as connection:
+            connection = sqlite3.connect(destination)
+            try:
                 value = connection.execute("SELECT value FROM sample").fetchone()[0]
+            finally:
+                connection.close()
             self.assertEqual(value, "snapshot-ok")
 
 
