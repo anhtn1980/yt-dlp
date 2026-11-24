@@ -91,9 +91,12 @@ def _find_coccoc_cookie_db(profile_dir: Path) -> Path:
 
 def _sqlite_snapshot(source: Path, destination: Path) -> None:
     """Create a transactionally consistent SQLite snapshot, including WAL data."""
-    source_uri = f"{source.resolve().as_uri()}?mode=ro"
-    src = sqlite3.connect(source_uri, uri=True, timeout=15)
-    dst = sqlite3.connect(str(destination), timeout=15)
+    # Use a native filesystem path instead of a SQLite file: URI.
+    # On Windows, file:// URI handling can fail for browser profile paths
+    # containing spaces or drive-letter syntax (for example, "User Data").
+    # query_only prevents writes to the live browser database.
+    src = sqlite3.connect(str(source.resolve()), timeout=15)
+    dst = sqlite3.connect(str(destination.resolve()), timeout=15)
     try:
         src.execute("PRAGMA query_only = ON")
         src.backup(dst, pages=256, sleep=0.1)
@@ -135,6 +138,7 @@ def coccoc_cookie_options(options: dict[str, Any]) -> Iterator[dict[str, Any]]:
                 "Cannot create a safe snapshot of the Cốc Cốc cookie database. "
                 "Check Windows file permissions; if Cốc Cốc is updating or holding "
                 "an exclusive lock, close it completely and retry. "
+                f"Cookie DB path: {cookie_db}. "
                 f"Underlying error: {type(exc).__name__}: {exc}"
             ) from exc
 
