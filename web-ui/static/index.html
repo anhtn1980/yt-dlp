@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10131b">
+  <title>yt-dlp — Video Downloader</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="yt-dlp home"><span class="brand-mark">y</span><span>yt-dlp<span class="brand-muted"> / downloader</span></span></a>
+      <span class="status-pill"><i></i> Local engine</span>
+    </header>
+
+    <section class="hero">
+      <div class="eyebrow">SIMPLE MEDIA DOWNLOADER</div>
+      <h1>Your media.<br><span>One simple link.</span></h1>
+      <p class="intro">Dán liên kết video để tải video MP4 hoặc trích xuất âm thanh MP3.</p>
+
+      <form id="download-form" class="download-card">
+        <label for="video-url">ĐƯỜNG DẪN VIDEO</label>
+        <div class="url-row">
+          <input id="video-url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="url" required>
+          <button class="paste-btn" id="paste-btn" type="button" title="Dán từ clipboard" aria-label="Dán link">Paste</button>
+        </div>
+        <div class="actions">
+          <button class="action action-primary" type="submit" data-format="mp4"><span class="action-icon">▣</span><span>GET MP4</span><small>Video</small></button>
+          <button class="action action-secondary" type="submit" data-format="mp3"><span class="action-icon">♫</span><span>GET MP3</span><small>Audio</small></button>
+        </div>
+        <p class="hint">Chỉ tải nội dung bạn có quyền sử dụng. Một số định dạng cần FFmpeg.</p>
+      </form>
+    </section>
+
+    <section id="preview" class="preview hidden" aria-live="polite">
+      <img id="thumbnail" alt="Video thumbnail">
+      <div class="preview-copy"><span class="eyebrow">VIDEO PREVIEW</span><h2 id="video-title"></h2><p id="video-meta"></p></div>
+    </section>
+
+    <section id="task-panel" class="task-panel hidden" aria-live="polite">
+      <div class="task-heading"><div><span class="eyebrow">DOWNLOAD TASK</span><h2 id="task-title">Preparing your file</h2></div><span id="task-state" class="task-state">Queued</span></div>
+      <div class="progress-track"><div id="progress-bar"></div></div>
+      <div class="progress-meta"><span id="progress-message">Waiting…</span><strong id="progress-value">0%</strong></div>
+      <p id="task-error" class="error hidden"></p>
+      <a id="download-link" class="download-link hidden" href="#">↓&nbsp; Download file</a>
+    </section>
+
+    <footer><span>Powered by yt-dlp</span><span>Runs on your device · No cloud upload</span></footer>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
