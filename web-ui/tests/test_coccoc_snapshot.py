@@ -45,6 +45,33 @@ class CocCocCookieSnapshotTests(unittest.TestCase):
                 value = connection.execute("SELECT value FROM sample").fetchone()[0]
             self.assertEqual(value, "snapshot-ok")
 
+
+    def test_cookie_options_preserve_detailed_snapshot_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            user_data = Path(directory) / "User Data"
+            profile = user_data / "Default"
+            cookie_db = profile / "Network" / "Cookies"
+            self._make_cookie_db(cookie_db)
+
+            with (
+                patch.object(main, "COCCOC_PROFILE_DIR", profile),
+                patch.object(main, "COCCOC_USER_DATA_DIR", user_data),
+                patch.object(
+                    main,
+                    "_sqlite_snapshot",
+                    side_effect=RuntimeError(
+                        "SQLite snapshot failed while opening source database; "
+                        "cause=OperationalError: unable to open database file"
+                    ),
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "SQLite snapshot failed while opening source database",
+                ):
+                    with main.coccoc_cookie_options({"quiet": True}):
+                        self.fail("cookie options should not be yielded after snapshot failure")
+
     def test_cookie_options_point_to_temporary_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             user_data = Path(directory) / "User Data"
