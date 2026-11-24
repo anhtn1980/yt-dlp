@@ -254,7 +254,12 @@ async def index() -> FileResponse:
 
 @app.get("/api/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "service": "yt-dlp-web-ui", "milestone": "M1"}
+    return {
+        "status": "ok",
+        "service": "yt-dlp-web-ui",
+        "milestone": "M1",
+        "revision": os.environ.get("YT_DLP_WEB_UI_REVISION", "unknown"),
+    }
 
 
 @app.post("/api/video/info")
