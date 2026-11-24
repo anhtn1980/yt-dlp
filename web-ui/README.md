@@ -46,6 +46,16 @@ Cookies and the copied `Local State` are credentials-related data. They remain o
 
 The application currently binds to localhost in the documented command. Do not expose it to a LAN or the public internet until authentication, authorization, rate limits and network controls have been implemented and reviewed. Binding to `0.0.0.0` by itself is not safe. LAN access is a planned deployment milestone, not a supported secure mode in this M1 build.
 
+## Developer tests
+
+From the repository root, run the Cốc Cốc snapshot unit tests with:
+
+```powershell
+.\\.venv\\Scripts\\python.exe -m unittest discover -s web-ui\\tests -v
+```
+
+These tests use a synthetic SQLite database and do not read or expose the real browser cookies.
+
 ## Notes
 
 - Downloads are saved in `web-ui/downloads/`.
