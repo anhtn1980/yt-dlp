@@ -125,11 +125,17 @@ def coccoc_cookie_options(options: dict[str, Any]) -> Iterator[dict[str, Any]]:
         snapshot_cookie_db = snapshot_profile / cookie_db.relative_to(COCCOC_PROFILE_DIR)
         snapshot_cookie_db.parent.mkdir(parents=True, exist_ok=True)
 
-        _sqlite_snapshot(cookie_db, snapshot_cookie_db)
-
-        local_state = COCCOC_USER_DATA_DIR / "Local State"
-        if local_state.is_file():
-            shutil.copy2(local_state, snapshot_user_data / "Local State")
+        try:
+            _sqlite_snapshot(cookie_db, snapshot_cookie_db)
+            local_state = COCCOC_USER_DATA_DIR / "Local State"
+            if local_state.is_file():
+                shutil.copy2(local_state, snapshot_user_data / "Local State")
+        except (sqlite3.Error, PermissionError, OSError) as exc:
+            raise RuntimeError(
+                "Cannot create a safe snapshot of the Cốc Cốc cookie database. "
+                "Check Windows file permissions; if Cốc Cốc is updating or holding "
+                "an exclusive lock, close it completely and retry."
+            ) from exc
 
         configured["cookiesfrombrowser"] = (
             "chrome",
