@@ -91,15 +91,17 @@ def _find_coccoc_cookie_db(profile_dir: Path) -> Path:
 
 def _sqlite_snapshot(source: Path, destination: Path) -> None:
     """Create a transactionally consistent SQLite snapshot, including WAL data."""
-    # Use a native filesystem path instead of a SQLite file: URI.
-    # On Windows, file:// URI handling can fail for browser profile paths
-    # containing spaces or drive-letter syntax (for example, "User Data").
-    # query_only prevents writes to the live browser database.
+    # Open the live browser database in SQLite read-only mode from the
+    # start. PRAGMA query_only alone is not equivalent: sqlite3.connect()
+    # otherwise first requests a read-write connection, which can fail for
+    # Chromium's live Cookies database even when read-only access is allowed.
+    # Path.as_uri() safely quotes Windows drive letters and spaces.
     src = None
     dst = None
-    stage = "opening source database"
+    stage = "opening source database in read-only mode"
     try:
-        src = sqlite3.connect(str(source.resolve()), timeout=15)
+        source_uri = source.resolve().as_uri() + "?mode=ro"
+        src = sqlite3.connect(source_uri, uri=True, timeout=15)
         src.execute("PRAGMA query_only = ON")
         stage = "opening destination snapshot database"
         dst = sqlite3.connect(str(destination.resolve()), timeout=15)
