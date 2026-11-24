@@ -1,13 +1,13 @@
 # yt-dlp Web UI
 
-A responsive browser interface for the yt-dlp engine. The initial target is Windows desktop, with optional access from a phone or other device on the same trusted LAN.
+Responsive web interface for yt-dlp. M1 includes URL inspection, GET MP4, GET MP3, task progress and completed-file delivery.
 
 ## Requirements
 
-- Python 3.10 or newer
-- FFmpeg (needed for MP4 merging and MP3 extraction in later milestones)
+- Python 3.10+
+- FFmpeg installed and available on PATH (required for audio extraction and format merging)
 
-## Windows quick start
+## Windows — local mode
 
 From the repository root in PowerShell:
 
@@ -19,19 +19,15 @@ python -m pip install -r web-ui\requirements.txt
 python -m uvicorn app.main:app --app-dir web-ui --host 127.0.0.1 --port 8080
 ```
 
-Open http://127.0.0.1:8080/api/health to verify the M0 backend scaffold.
+Open http://127.0.0.1:8080. The health endpoint is http://127.0.0.1:8080/api/health.
 
-If PowerShell blocks virtual-environment activation, use the Python executable directly:
+## LAN mode — not enabled by default
 
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r web-ui\requirements.txt
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir web-ui --host 127.0.0.1 --port 8080
-```
+The application currently binds to localhost in the documented command. Do not expose it to a LAN or the public internet until authentication, authorization, rate limits and network controls have been implemented and reviewed. Binding to `0.0.0.0` by itself is not safe. LAN access is a planned deployment milestone, not a supported secure mode in this M1 build.
 
-## LAN mode
+## Notes
 
-LAN mode is not enabled by default and should not be exposed until authentication and access controls are implemented and reviewed. Binding to `0.0.0.0` alone is not a secure remote-access solution. See [the architecture](../docs/WEB-UI-ARCHITECTURE.md).
-
-## Current status
-
-M0 only provides the backend scaffold and health check. The URL form, GET MP4/GET MP3 actions, task progress and file delivery are planned for M1.
+- Downloads are saved in `web-ui/downloads/`.
+- The application accepts HTTP(S) URLs and rejects URLs resolving to non-public IP addresses as a basic SSRF mitigation. This is defense-in-depth, not a substitute for network egress controls.
+- The task store is in memory and is reset when the server restarts.
+- Download only content you are authorized to save. The application does not attempt to bypass DRM or access controls.
