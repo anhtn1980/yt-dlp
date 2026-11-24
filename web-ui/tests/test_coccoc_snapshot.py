@@ -30,10 +30,12 @@ class CocCocCookieSnapshotTests(unittest.TestCase):
 
             self.assertEqual(main._find_coccoc_cookie_db(profile), network_db)
 
-    def test_sqlite_snapshot_contains_committed_rows(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            source = Path(directory) / "source" / "Cookies"
-            destination = Path(directory) / "snapshot" / "Cookies"
+    def test_sqlite_snapshot_supports_windows_style_paths_with_spaces(self) -> None:
+        # Windows profile paths commonly contain "User Data"; use a space in
+        # the temporary root as well to catch URI/path quoting regressions.
+        with tempfile.TemporaryDirectory(prefix="yt-dlp test ") as directory:
+            source = Path(directory) / "User Data" / "Default" / "Network" / "Cookies"
+            destination = Path(directory) / "private snapshot" / "Cookies"
             self._make_cookie_db(source)
             destination.parent.mkdir(parents=True)
 
