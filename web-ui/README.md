@@ -23,18 +23,24 @@ Open http://127.0.0.1:8080. The health endpoint is http://127.0.0.1:8080/api/hea
 
 ## YouTube sign-in with Cốc Cốc
 
-On Windows, the backend automatically tries to read cookies from the default Cốc Cốc profile:
+On Windows, the backend reads the local Cốc Cốc Chromium profile. The default profile is:
 
 `%LOCALAPPDATA%\CocCoc\Browser\User Data\Default`
 
-Sign in to YouTube in Cốc Cốc first. If your profile is stored elsewhere, set `COCCOC_PROFILE_PATH` to the full profile directory before starting the server. For example:
+The cookie database is detected at `Default\Network\Cookies` first, then `Default\Cookies`. If your profile is stored elsewhere, set `COCCOC_PROFILE_PATH` to the full profile directory before starting the server:
 
 ```powershell
 $env:COCCOC_PROFILE_PATH = "$env:LOCALAPPDATA\CocCoc\Browser\User Data\Profile 1"
-run-web-ui.bat
+.\run-web-ui.bat
 ```
 
-If cookie extraction reports a database lock/copy error, fully exit Cốc Cốc (including background processes) and retry. Open the local Web UI in another browser such as Edge while Cốc Cốc is closed. Cookies are read locally by yt-dlp and are not uploaded by this application. Treat browser cookies as credentials: do not export, share, commit or log them. Cookie access may not resolve every YouTube bot challenge; use only your own signed-in session and respect YouTube's terms.
+### Cookie snapshot behavior
+
+The app no longer asks yt-dlp to copy the live browser database directly. Before each metadata or download operation, it creates a temporary SQLite backup of the cookie database using SQLite's backup API (so committed WAL data is included), and copies the profile's `Local State` encryption metadata alongside it. yt-dlp reads from that temporary profile snapshot. The temporary directory is removed when the operation finishes.
+
+This is designed to avoid the Windows file-copy failure that can happen while Cốc Cốc is running. It does not bypass YouTube sign-in, bot checks, DRM or other access controls. If Windows or the browser prevents SQLite from opening the database even for a read-only snapshot, the app returns an actionable error; close Cốc Cốc completely and retry.
+
+Cookies and the copied `Local State` are credentials-related data. They remain on this computer, are used only in a temporary directory, and must never be exported, shared, committed or logged. Use only your own signed-in browser profile.
 
 ## LAN mode — not enabled by default
 
