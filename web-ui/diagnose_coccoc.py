@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import tempfile
 from pathlib import Path
 
 profile = Path(
@@ -44,7 +45,7 @@ try:
     with cookie_db.open("rb") as handle:
         header = handle.read(16)
     print(f"File open (read-only): OK")
-    print(f"SQLite header present: {header == b'SQLite format 3\\x00'}")
+    print(f"SQLite header present: {header == b'SQLite format 3\x00'}")
 except OSError as exc:
     print(f"FILE OPEN ERROR: {type(exc).__name__}: {exc}")
     raise SystemExit(3)
@@ -69,5 +70,15 @@ try:
     print("Local State readable: True")
 except OSError as exc:
     print(f"Local State readable: False ({type(exc).__name__}: {exc})")
+
+try:
+    from app.main import _sqlite_snapshot
+
+    with tempfile.TemporaryDirectory(prefix="yt-dlp-coccoc-diagnostic-") as directory:
+        snapshot = Path(directory) / "Cookies"
+        _sqlite_snapshot(cookie_db, snapshot)
+        print(f"SQLite backup API snapshot: OK ({snapshot.stat().st_size} bytes)")
+except Exception as exc:
+    print(f"SQLite backup API snapshot: FAILED ({type(exc).__name__}: {exc})")
 
 print("RESULT: Diagnostics completed. No cookie values were accessed or displayed.")
