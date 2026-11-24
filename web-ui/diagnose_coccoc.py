@@ -1,0 +1,73 @@
+"""Safe diagnostics for Cốc Cốc's local Chromium cookie database.
+
+This script reports file accessibility and SQLite health only. It never reads,
+prints, exports, or copies cookie values.
+Run from PowerShell with:
+  .\\.venv\\Scripts\\python.exe web-ui\\diagnose_coccoc.py
+"""
+from __future__ import annotations
+
+import os
+import sqlite3
+from pathlib import Path
+
+profile = Path(
+    os.environ.get(
+        "COCCOC_PROFILE_PATH",
+        str(Path.home() / "AppData/Local/CocCoc/Browser/User Data/Default"),
+    )
+).expanduser()
+
+candidates = (profile / "Network" / "Cookies", profile / "Cookies")
+cookie_db = next((p for p in candidates if p.is_file()), None)
+user_data = profile.parent
+local_state = user_data / "Local State"
+
+print("=== COC COC COOKIE DATABASE DIAGNOSTICS ===")
+print(f"Profile directory exists: {profile.is_dir()}")
+print(f"Profile path: {profile}")
+print(f"Cookie database found: {cookie_db is not None}")
+
+if cookie_db is None:
+    print("RESULT: Cookie database file not found in expected profile locations.")
+    raise SystemExit(2)
+
+print(f"Cookie DB path: {cookie_db}")
+try:
+    stat = cookie_db.stat()
+    print(f"Cookie DB size: {stat.st_size} bytes")
+    print(f"Cookie DB readable flag: {os.access(cookie_db, os.R_OK)}")
+except OSError as exc:
+    print(f"STAT ERROR: {type(exc).__name__}: {exc}")
+
+try:
+    with cookie_db.open("rb") as handle:
+        header = handle.read(16)
+    print(f"File open (read-only): OK")
+    print(f"SQLite header present: {header == b'SQLite format 3\\x00'}")
+except OSError as exc:
+    print(f"FILE OPEN ERROR: {type(exc).__name__}: {exc}")
+    raise SystemExit(3)
+
+try:
+    uri = cookie_db.resolve().as_uri() + "?mode=ro"
+    connection = sqlite3.connect(uri, uri=True, timeout=5)
+    try:
+        connection.execute("PRAGMA query_only = ON")
+        result = connection.execute("PRAGMA quick_check(1)").fetchone()
+        print(f"SQLite read-only open: OK")
+        print(f"SQLite quick_check: {result[0] if result else 'no result'}")
+    finally:
+        connection.close()
+except sqlite3.Error as exc:
+    print(f"SQLITE OPEN/CHECK ERROR: {type(exc).__name__}: {exc}")
+    raise SystemExit(4)
+
+try:
+    with local_state.open("rb") as handle:
+        handle.read(1)
+    print("Local State readable: True")
+except OSError as exc:
+    print(f"Local State readable: False ({type(exc).__name__}: {exc})")
+
+print("RESULT: Diagnostics completed. No cookie values were accessed or displayed.")
