@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Iterator
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 import yt_dlp
 from fastapi import FastAPI, HTTPException
@@ -91,7 +91,7 @@ def _find_coccoc_cookie_db(profile_dir: Path) -> Path:
 
 def _sqlite_snapshot(source: Path, destination: Path) -> None:
     """Create a transactionally consistent SQLite snapshot, including WAL data."""
-    source_uri = f"file:{quote(source.resolve().as_posix(), safe='/:')}?mode=ro"
+    source_uri = f"{source.resolve().as_uri()}?mode=ro"
     src = sqlite3.connect(source_uri, uri=True, timeout=15)
     dst = sqlite3.connect(str(destination), timeout=15)
     try:
@@ -134,7 +134,8 @@ def coccoc_cookie_options(options: dict[str, Any]) -> Iterator[dict[str, Any]]:
             raise RuntimeError(
                 "Cannot create a safe snapshot of the Cốc Cốc cookie database. "
                 "Check Windows file permissions; if Cốc Cốc is updating or holding "
-                "an exclusive lock, close it completely and retry."
+                "an exclusive lock, close it completely and retry. "
+                f"Underlying error: {type(exc).__name__}: {exc}"
             ) from exc
 
         configured["cookiesfrombrowser"] = (
