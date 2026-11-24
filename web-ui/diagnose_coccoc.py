@@ -75,9 +75,19 @@ try:
     from app.main import _sqlite_snapshot
 
     with tempfile.TemporaryDirectory(prefix="yt-dlp-coccoc-diagnostic-") as directory:
-        snapshot = Path(directory) / "Cookies"
-        _sqlite_snapshot(cookie_db, snapshot)
-        print(f"SQLite backup API snapshot: OK ({snapshot.stat().st_size} bytes)")
+        # Reproduce the exact nested destination layout used by the Web UI.
+        snapshot_user_data = Path(directory) / "User Data"
+        snapshot_profile = snapshot_user_data / profile.name
+        snapshot_cookie_db = snapshot_profile / cookie_db.relative_to(profile)
+        snapshot_cookie_db.parent.mkdir(parents=True, exist_ok=True)
+        print(f"Snapshot directory writable: {os.access(snapshot_cookie_db.parent, os.W_OK)}")
+        print(f"Snapshot DB destination: {snapshot_cookie_db}")
+        _sqlite_snapshot(cookie_db, snapshot_cookie_db)
+        print(f"SQLite backup API snapshot (Web UI layout): OK ({snapshot_cookie_db.stat().st_size} bytes)")
+        if local_state.is_file():
+            import shutil
+            shutil.copy2(local_state, snapshot_user_data / "Local State")
+            print("Local State copy into Web UI layout: OK")
 except Exception as exc:
     print(f"SQLite backup API snapshot: FAILED ({type(exc).__name__}: {exc})")
 
