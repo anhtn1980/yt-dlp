@@ -3,13 +3,18 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import os
+import shutil
 import socket
+import sqlite3
+import tempfile
 import threading
 import uuid
+from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
-from urllib.parse import urlparse
+from typing import Any, Iterator
+from urllib.parse import quote, urlparse
 
 import yt_dlp
 from fastapi import FastAPI, HTTPException
@@ -25,11 +30,12 @@ DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 # Cốc Cốc stores its Chromium profile under this default Windows location.
 # Override COCCOC_PROFILE_PATH if the browser uses a different profile folder.
 COCCOC_PROFILE_DIR = Path(
-    __import__("os").environ.get(
+    os.environ.get(
         "COCCOC_PROFILE_PATH",
         str(Path.home() / "AppData/Local/CocCoc/Browser/User Data/Default"),
     )
 ).expanduser()
+COCCOC_USER_DATA_DIR = COCCOC_PROFILE_DIR.parent
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("yt-dlp-web-ui")
@@ -69,20 +75,69 @@ def validate_public_http_url(raw_url: str) -> str:
     return raw_url.strip()
 
 
-def yt_dlp_options_with_coccoc_cookies(options: dict[str, Any]) -> dict[str, Any]:
-    """Use the signed-in Cốc Cốc Chromium profile when it exists.
+def _find_coccoc_cookie_db(profile_dir: Path) -> Path:
+    """Find the active Chromium cookie DB without scanning extension storage."""
+    candidates = (
+        profile_dir / "Network" / "Cookies",
+        profile_dir / "Cookies",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(
+        f"Cốc Cốc cookie database was not found in profile: {profile_dir}"
+    )
 
-    yt-dlp's Chromium cookie reader accepts an explicit profile path. The
-    browser should be closed while cookies are read to avoid SQLite locks.
+
+def _sqlite_snapshot(source: Path, destination: Path) -> None:
+    """Create a transactionally consistent SQLite snapshot, including WAL data."""
+    source_uri = f"file:{quote(source.resolve().as_posix(), safe='/:')}?mode=ro"
+    src = sqlite3.connect(source_uri, uri=True, timeout=15)
+    dst = sqlite3.connect(str(destination), timeout=15)
+    try:
+        src.execute("PRAGMA query_only = ON")
+        src.backup(dst, pages=256, sleep=0.1)
+        dst.commit()
+    finally:
+        dst.close()
+        src.close()
+
+
+@contextmanager
+def coccoc_cookie_options(options: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    """Give yt-dlp a private snapshot of Cốc Cốc cookies.
+
+    yt-dlp's Chromium reader copies the live Cookies DB with shutil.copy().
+    On Windows that copy can fail while Cốc Cốc has the database open. SQLite's
+    backup API reads a consistent snapshot instead, including committed WAL
+    pages. Local State is copied so yt-dlp can use the browser's local
+    encryption metadata. Temporary sensitive files are removed on exit.
     """
-    if COCCOC_PROFILE_DIR.is_dir():
-        options["cookiesfrombrowser"] = (
+    configured = dict(options)
+    if not COCCOC_PROFILE_DIR.is_dir():
+        yield configured
+        return
+
+    cookie_db = _find_coccoc_cookie_db(COCCOC_PROFILE_DIR)
+    with tempfile.TemporaryDirectory(prefix="yt-dlp-coccoc-") as temp_root:
+        snapshot_user_data = Path(temp_root) / "User Data"
+        snapshot_profile = snapshot_user_data / COCCOC_PROFILE_DIR.name
+        snapshot_cookie_db = snapshot_profile / cookie_db.relative_to(COCCOC_PROFILE_DIR)
+        snapshot_cookie_db.parent.mkdir(parents=True, exist_ok=True)
+
+        _sqlite_snapshot(cookie_db, snapshot_cookie_db)
+
+        local_state = COCCOC_USER_DATA_DIR / "Local State"
+        if local_state.is_file():
+            shutil.copy2(local_state, snapshot_user_data / "Local State")
+
+        configured["cookiesfrombrowser"] = (
             "chrome",
-            str(COCCOC_PROFILE_DIR),
+            str(snapshot_profile),
             None,
             None,
         )
-    return options
+        yield configured
 
 
 def update_task(task_id: str, **changes: Any) -> None:
@@ -143,10 +198,10 @@ def run_download(task_id: str, url: str, media_type: str) -> None:
         })
 
     try:
-        yt_dlp_options_with_coccoc_cookies(options)
-        update_task(task_id, state="starting", message="Starting download…")
-        with yt_dlp.YoutubeDL(options) as ydl:
-            ydl.download([url])
+        update_task(task_id, state="starting", message="Reading local Cốc Cốc cookies…")
+        with coccoc_cookie_options(options) as cookie_options:
+            with yt_dlp.YoutubeDL(cookie_options) as ydl:
+                ydl.download([url])
         matches = sorted(DOWNLOAD_DIR.glob(prefix + "*"), key=lambda p: p.stat().st_mtime, reverse=True)
         matches = [p for p in matches if p.is_file() and p.suffix.lower() not in {".part", ".ytdl"}]
         if not matches:
@@ -180,9 +235,8 @@ async def health() -> dict[str, str]:
 async def video_info(request: URLRequest) -> dict[str, Any]:
     url = validate_public_http_url(request.url)
     options = {"quiet": True, "no_warnings": True, "noplaylist": True, "skip_download": True}
-    yt_dlp_options_with_coccoc_cookies(options)
     try:
-        info = await __import__("asyncio").to_thread(_extract_info, url, options)
+        info = await __import__("asyncio").to_thread(_extract_info_with_coccoc_cookies, url, options)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Could not read video information: {str(exc)[:300]}") from None
     return {
@@ -194,9 +248,10 @@ async def video_info(request: URLRequest) -> dict[str, Any]:
     }
 
 
-def _extract_info(url: str, options: dict[str, Any]) -> dict[str, Any]:
-    with yt_dlp.YoutubeDL(options) as ydl:
-        return ydl.extract_info(url, download=False)
+def _extract_info_with_coccoc_cookies(url: str, options: dict[str, Any]) -> dict[str, Any]:
+    with coccoc_cookie_options(options) as cookie_options:
+        with yt_dlp.YoutubeDL(cookie_options) as ydl:
+            return ydl.extract_info(url, download=False)
 
 
 @app.post("/api/download/{media_type}")
