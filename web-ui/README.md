@@ -21,6 +21,21 @@ python -m uvicorn app.main:app --app-dir web-ui --host 127.0.0.1 --port 8080
 
 Open http://127.0.0.1:8080. The health endpoint is http://127.0.0.1:8080/api/health.
 
+## YouTube sign-in with Cốc Cốc
+
+On Windows, the backend automatically tries to read cookies from the default Cốc Cốc profile:
+
+`%LOCALAPPDATA%\CocCoc\Browser\User Data\Default`
+
+Sign in to YouTube in Cốc Cốc first. If your profile is stored elsewhere, set `COCCOC_PROFILE_PATH` to the full profile directory before starting the server. For example:
+
+```powershell
+$env:COCCOC_PROFILE_PATH = "$env:LOCALAPPDATA\CocCoc\Browser\User Data\Profile 1"
+run-web-ui.bat
+```
+
+If cookie extraction reports a database lock/copy error, fully exit Cốc Cốc (including background processes) and retry. Open the local Web UI in another browser such as Edge while Cốc Cốc is closed. Cookies are read locally by yt-dlp and are not uploaded by this application. Treat browser cookies as credentials: do not export, share, commit or log them. Cookie access may not resolve every YouTube bot challenge; use only your own signed-in session and respect YouTube's terms.
+
 ## LAN mode — not enabled by default
 
 The application currently binds to localhost in the documented command. Do not expose it to a LAN or the public internet until authentication, authorization, rate limits and network controls have been implemented and reviewed. Binding to `0.0.0.0` by itself is not safe. LAN access is a planned deployment milestone, not a supported secure mode in this M1 build.
