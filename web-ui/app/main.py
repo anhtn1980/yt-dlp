@@ -111,6 +111,10 @@ def run_download(task_id: str, url: str, media_type: str) -> None:
         options.update({
             "format": "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
             "merge_output_format": "mp4",
+            "postprocessors": [{
+                "key": "FFmpegVideoConvertor",
+                "preferedformat": "mp4",
+            }],
         })
 
     try:
