@@ -95,15 +95,30 @@ def _sqlite_snapshot(source: Path, destination: Path) -> None:
     # On Windows, file:// URI handling can fail for browser profile paths
     # containing spaces or drive-letter syntax (for example, "User Data").
     # query_only prevents writes to the live browser database.
-    src = sqlite3.connect(str(source.resolve()), timeout=15)
-    dst = sqlite3.connect(str(destination.resolve()), timeout=15)
+    src = None
+    dst = None
+    stage = "opening source database"
     try:
+        src = sqlite3.connect(str(source.resolve()), timeout=15)
         src.execute("PRAGMA query_only = ON")
+        stage = "opening destination snapshot database"
+        dst = sqlite3.connect(str(destination.resolve()), timeout=15)
+        stage = "copying SQLite database with backup API"
         src.backup(dst, pages=256, sleep=0.1)
         dst.commit()
+    except (sqlite3.Error, OSError) as exc:
+        raise RuntimeError(
+            f"SQLite snapshot failed while {stage}; "
+            f"source={source.resolve()}; destination={destination.resolve()}; "
+            f"destination_parent_exists={destination.parent.is_dir()}; "
+            f"destination_parent_writable={os.access(destination.parent, os.W_OK)}; "
+            f"cause={type(exc).__name__}: {exc}"
+        ) from exc
     finally:
-        dst.close()
-        src.close()
+        if dst is not None:
+            dst.close()
+        if src is not None:
+            src.close()
 
 
 @contextmanager
