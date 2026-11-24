@@ -4,13 +4,13 @@
 
 A modern, minimal, responsive interface for the existing yt-dlp engine. The first user workflow is intentionally simple: paste a URL, choose **GET MP4** or **GET MP3**, follow progress and retrieve the result.
 
-## M0 — Foundation (current)
+## M0 — Foundation (implemented; local verification pending)
 
 - [x] Create isolated `dev` branch from `master`.
 - [x] Record architecture and security boundaries.
 - [x] Add a minimal FastAPI application scaffold and dependency list.
 - [x] Document local and LAN runtime modes.
-- [ ] Run the scaffold locally and verify the health endpoint.
+- [ ] Run locally and verify the health endpoint (requires a Windows/runtime check).
 - [ ] Add automated tests and CI for the web-ui package.
 
 Acceptance criteria:
@@ -20,13 +20,13 @@ Acceptance criteria:
 - Localhost is the default bind address; LAN mode is opt-in.
 - Setup and security assumptions are documented.
 
-## M1 — Basic download workflow
+## M1 — Basic download workflow (implemented; runtime testing pending)
 
-- Responsive page with URL input and two clear actions: GET MP4 and GET MP3.
-- URL inspection and useful title/thumbnail/duration preview.
-- Backend task creation, status polling and completed-file download.
-- yt-dlp progress hooks; FFmpeg detection and actionable error messages.
-- Safe output naming and controlled downloads directory.
+- [x] Responsive page with URL input and two clear actions: GET MP4 and GET MP3.
+- [x] URL inspection and title/thumbnail/duration preview.
+- [x] Backend task creation, status polling and completed-file download.
+- [x] yt-dlp progress hooks and actionable task errors; FFmpeg runtime validation remains.
+- [x] Generated task IDs, restricted filenames and controlled downloads directory.
 
 Acceptance criteria:
 - A permitted, supported test URL can be downloaded as MP4 and MP3.
