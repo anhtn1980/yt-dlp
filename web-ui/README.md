@@ -9,7 +9,16 @@ Responsive web interface for yt-dlp. M1 includes URL inspection, GET MP4, GET MP
 
 ## Windows — local mode
 
-From the repository root in PowerShell:
+For normal use, double-click `run-web-ui.bat` from the repository root. The launcher:
+
+- requires the `dev` branch and refuses to overwrite uncommitted local changes;
+- pulls the latest `origin/dev` changes with fast-forward only;
+- detects an existing listener on port 8080 and asks before stopping it, preventing an old server from continuing to serve the UI;
+- creates the virtual environment if needed, checks dependencies and FFmpeg, then starts the server.
+
+The running source revision is shown at `http://127.0.0.1:8080/api/health`. Check its `revision` field if you need to confirm which code is serving the page.
+
+For manual setup from the repository root in PowerShell:
 
 ```powershell
 py -3 -m venv .venv
