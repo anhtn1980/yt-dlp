@@ -16,6 +16,13 @@ function formatDuration(seconds) {
   return [Math.floor(n / 3600), Math.floor((n % 3600) / 60), n % 60]
     .filter((v, i) => v > 0 || i > 0).map(v => String(v).padStart(2, "0")).join(":");
 }
+function formatSpeed(bytesPerSecond) {
+  if (!bytesPerSecond) return "";
+  const units = ["B/s", "KB/s", "MB/s", "GB/s"];
+  let value = bytesPerSecond, index = 0;
+  while (value >= 1024 && index < units.length - 1) { value /= 1024; index++; }
+  return value.toFixed(1) + " " + units[index];
+}
 async function api(path, options = {}) {
   const response = await fetch(path, {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
@@ -77,7 +84,8 @@ async function pollTask() {
     const percent = task.percent == null ? 0 : Math.max(0, Math.min(100, task.percent));
     $("progress-bar").style.width = percent + "%";
     $("progress-value").textContent = Math.round(percent) + "%";
-    $("progress-message").textContent = task.message || task.state;
+    const details = [formatSpeed(task.speed), task.eta != null ? "ETA " + formatDuration(task.eta) : ""].filter(Boolean);
+    $("progress-message").textContent = [task.message || task.state, ...details].join(" · ");
     $("task-state").textContent = task.state;
     if (task.state === "completed") {
       clearInterval(pollTimer);
